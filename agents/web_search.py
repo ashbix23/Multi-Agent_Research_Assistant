@@ -9,7 +9,6 @@ summarizer will condense in the next stage.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import anthropic
 from rich.console import Console
@@ -24,19 +23,28 @@ _MAX_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", "5"))
 
 def _extract_sources(content_blocks: list) -> list[str]:
     """
-    Pull source URLs out of the tool result blocks returned
-    by the web search tool.
+    Pull source URLs from CitationsWebSearchResultLocation objects
+    attached to text blocks by the web_search tool.
     """
     sources = []
+
     for block in content_blocks:
-        if block.type == "tool_result":
-            for item in getattr(block, "content", []):
-                if hasattr(item, "source") and item.source:
-                    sources.append(item.source)
-    return list(dict.fromkeys(sources))  # deduplicate, preserve order
+        citations = getattr(block, "citations", None)
+        if not citations:
+            continue
+        for citation in citations:
+            url = getattr(citation, "url", None)
+            if url and isinstance(url, str):
+                sources.append(url)
+
+    return list(dict.fromkeys(sources))
 
 
-def _run_search_for_task(client: anthropic.Anthropic, query: str, focus: str) -> tuple[str, list[str]]:
+def _run_search_for_task(
+    client: anthropic.Anthropic,
+    query: str,
+    focus: str,
+) -> tuple[str, list[str]]:
     """
     Call the Anthropic API with the web_search tool enabled for a
     single query. Returns (raw_text, sources).
@@ -64,7 +72,6 @@ def _run_search_for_task(client: anthropic.Anthropic, query: str, focus: str) ->
         ],
     )
 
-    # Collect all text across content blocks
     raw_text = ""
     for block in response.content:
         if hasattr(block, "text"):
@@ -121,7 +128,6 @@ def web_search_node(state: ResearchState) -> dict:
         except Exception as e:
             error = f"web_search [{task['id']}] failed: {e}"
             console.print(f"[red]   Error: {error}[/]")
-            # Still append a result so downstream agents have something to work with
             search_results.append({
                 "task_id": task["id"],
                 "query": task["query"],

@@ -68,7 +68,7 @@ research_assistant/
 **1. Clone and enter the project directory:**
 
 ```bash
-git clone https://github.com/ashbix23/research_assistant
+git clone https://github.com/ashbix23/Multi-Agent_Research_Assistant
 cd research_assistant
 ```
 
